@@ -1,10 +1,19 @@
 # CNN-Background-Removal
 Background Removal based on U-Net
 
+# Download dataset
+
+[kaggle](https://github.com/Kaggle/kaggle-api) api is required, along with API credentials.
+
+Datasets can be downloaded with:
+
+`python3 script/download.py`
+
+Refer to [carvana competition](https://www.kaggle.com/c/carvana-image-masking-challenge) for information on dataset.
 
 ## Get simpler inputs
 
-In order to reduce the complexity of the task, we use a small python3 script that finds a padded bounding box around the image's object. This can then be used by the neural network. The script `MakeBB.py` is responsible for it, with the following usage : 
+In order to reduce the complexity of the task, we use a small python3 script that finds a padded bounding box around the image's object. This can then be used by the neural network. The script `MakeBB.py` is responsible for it, with the following usage :
 
 ```
 usage: MakeBB.py [-h] [-i IMAGE] [-p PADDING] [--directory] target output
