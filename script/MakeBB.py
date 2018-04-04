@@ -25,29 +25,17 @@ if args.directory:
     target_names = listdir(args.target)
     target_names.sort()
 
-    target_dir = args.target
-    if not target_dir.endswith("/"):
-        target_dir += "/"
-
-    output_dir = args.output
-    if not output_dir.endswith("/"):
-        output_dir += "/"
-
     output_names = []
     for i, value in enumerate(target_names):
-        output_names.append(output_dir + os.path.basename(value))
-        target_names[i] = target_dir + value
+        output_names.append(os.path.join(args.output, os.path.basename(value)))
+        target_names[i] = os.path.join(args.target, value)
 
     if args.image is not None:
         image_names = listdir(args.image)
         image_names.sort()
 
-        image_dir = args.image
-        if not image_dir.endswith("/"):
-            image_dir += "/"
-
         for i, value in enumerate(image_names):
-            image_names[i] = image_dir + value
+            image_names[i] = os.path.join(args.image, value)
 
 else:
     target_names = [args.target]
@@ -71,24 +59,13 @@ for i, target_name in enumerate(target_names):
     bb_coords[3] = min(target.size[1], bb[3] + args.padding) # Point2 y
 
     # Set color to white
-    if target.mode == "1": #binary image, 0 or 1
-        color = 1
-    elif target.mode == "L" or target.mode == "P": #grayscale, 0 to 255
-        color = 255
-    elif target.mode == "RGB":
-        color = (255, 255, 255)
-    elif target.mode == "HSV":
-        color = (0,0,255)
-    elif target.mode == "CMYK":
-        color = (0,0,0,0)
-    elif target.mode == "RGBA":
-        color = (255,255,255,255)
-    elif target.mode == "LAB":
-        color = (100, 0.01, -0.01)
-    elif target.mode == "YCbCr":
-        color = (1,0,0)
-    else: # assuming signed integer
-        color = 16777215
+    whites = { #mode <=> value
+        "1":1, #Binary image, 0 or 1
+        "L":255, "P":255, #grayscale, 0 to 255
+        "RGB":(255,255,255), "HSV":(0,0,255), "CMYK":(0,0,0,0),
+        "RGBA":(255,255,255,255), "LAB":(100, 0.01, -0.01), "YCbCr":(1,0,0)
+    }
+    color = whites.get(target.mode, 16777215) #Default for signed integer
 
     # Draw bounding box
     output.rectangle(bb_coords, fill=color, outline=color)
@@ -101,7 +78,10 @@ for i, target_name in enumerate(target_names):
         mask = mask.resize(input_img.size, Image.BICUBIC) #Adjust to input size
         black.paste(input_img, mask=mask)
         black.save(output_names[i])
+        black.close()
+        input_img.close()
 
     else:
         # Save output
         target.save(output_names[i])
+    target.close()
