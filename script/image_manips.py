@@ -43,3 +43,10 @@ def applyMask(input_img, mask_img):
     mask = mask.resize(input_img.size, Image.BICUBIC) #Adjust to input size
     black.paste(input_img, mask=mask)
     return black
+
+def resize(img, factor):
+    """Resizes an image |img| by a certain |factor|.
+    For instance a 400x200 img will be reduced to 200x100 if given factor 2.
+    """
+    newsize = (img.size[0] // factor, img.size[1] // factor)
+    return img.resize(newsize)
