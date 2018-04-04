@@ -1,2 +1,3 @@
 Pillow >= 5.0.0
 kaggle >= 1.1.0
+torch
