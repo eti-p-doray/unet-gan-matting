@@ -13,7 +13,7 @@ import numpy as np
 
 from unet import UNet
 from myloss import dice_coeff
-from script import resize, getBoundingBox, applyMask
+from script import resize, getBoundingBox, applyMask, cropBlack
 
 log_frequency = 100
 
@@ -64,6 +64,7 @@ def train(epoch):
             mask = Image.open(truth_names[item_idx])
             image, mask = resize(image, 2), resize(mask, 2)
             image = applyMask(image, getBoundingBox(mask, 20))
+            image, mask = cropBlack(image, mask)
 
             images.append(np.array(image))
             masks.append(np.array(mask))
@@ -97,6 +98,7 @@ def test():
         mask = Image.open(truth_name)
         image, mask = resize(image, 2), resize(mask, 2)
         image = applyMask(image, getBoundingBox(mask, 20))
+        image, mask = cropBlack(image, mask)
 
         iter_data, iter_truth = torch.FloatTensor(np.array(image)), torch.ByteTensor(np.array(mask))
         if use_cuda:

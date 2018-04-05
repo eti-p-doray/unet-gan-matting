@@ -1,1 +1,1 @@
-from .image_manips import getBoundingBox, applyMask, resize
+from .image_manips import getBoundingBox, applyMask, resize, cropBlack
