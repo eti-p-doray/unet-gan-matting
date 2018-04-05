@@ -8,6 +8,7 @@ from torch.autograd import Variable
 
 import argparse
 from os import listdir
+import os.path
 from PIL import Image
 import numpy as np
 
@@ -15,7 +16,7 @@ from unet import UNet
 from myloss import dice_coeff
 from script import resize, getBoundingBox, applyMask, cropBlack
 
-log_frequency = 100
+log_frequency = 1
 
 # Parse Arguments
 parser = argparse.ArgumentParser(description="Trains the unet")
@@ -60,14 +61,20 @@ def train(epoch):
     for batch_idx, batch_range in enumerate(batch(range(0, len(data_names)), args.batch_size)):
         images, masks = [], []
         for item_idx in batch_range:
-            image = Image.open(data_names[item_idx])
-            mask = Image.open(truth_names[item_idx])
-            image, mask = resize(image, 2), resize(mask, 2)
-            image = applyMask(image, getBoundingBox(mask, 20))
-            image, mask = cropBlack(image, mask)
+            image = Image.open(os.path.join(args.data, data_names[item_idx]))
+            mask = Image.open(os.path.join(args.truth, truth_names[item_idx]))
+            image, mask = resize(image, 4), resize(mask, 4)
+            image = applyMask(image, getBoundingBox(mask, 0))
+            #image, mask = cropBlack(image, mask) # TODO support variable size
 
-            images.append(np.array(image))
-            masks.append(np.array(mask))
+            # swap color axis because
+            # numpy image: H x W x C
+            # torch image: C X H X W
+            images.append(np.array(image).transpose((2, 0, 1)).tolist())
+            masks.append(np.array(mask, ndmin=3).tolist())
+
+            image.close()
+            mask.close()
 
         batch_data, batch_truth = torch.FloatTensor(np.array(images)), torch.ByteTensor(np.array(masks))
 
@@ -79,30 +86,32 @@ def train(epoch):
 
         output = model(data)
         output_probs = F.sigmoid(output).view(-1)
-
         loss = criterion(output_probs, truth.view(-1).float())
         loss.backward()
-
         optimizer.step()
 
         if batch_idx % log_frequency == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(data_names),
-                100. * batch_idx / len(data_names), loss.data[0]))
+                epoch, (batch_idx+1) * len(data), len(data_names),
+                100. * (batch_idx+1) * len(data) / len(data_names), loss.data[0]))
 
 def test():
-    model.test()
+    model.eval()
     tot_dice = 0
     for i, (data_name, truth_name) in enumerate(zip(data_names, truth_names)):
-        image = Image.open(data_name)
-        mask = Image.open(truth_name)
+        image = Image.open(os.path.join(args.data, data_name))
+        mask = Image.open(os.path.join(args.truth, truth_name))
         image, mask = resize(image, 2), resize(mask, 2)
         image = applyMask(image, getBoundingBox(mask, 20))
-        image, mask = cropBlack(image, mask)
+        #image, mask = cropBlack(image, mask)
 
-        iter_data, iter_truth = torch.FloatTensor(np.array(image)), torch.ByteTensor(np.array(mask))
+        iter_data, iter_truth = torch.FloatTensor(np.array(image, ndmin=4).transpose(0,3,1,2)), torch.ByteTensor(np.array(mask, ndmin=4))
         if use_cuda:
             iter_data, iter_truth = iter_data.cuda(), iter_truth.cuda()
+
+        image.close()
+        mask.close()
+
         data, truth = Variable(iter_data, volatile=True), Variable(iter_truth, volatile=True)
 
         output = model(data)
