@@ -50,3 +50,9 @@ def resize(img, factor):
     """
     newsize = (img.size[0] // factor, img.size[1] // factor)
     return img.resize(newsize)
+
+def cropBlack(image, mask):
+    """Removes black borders from an image, and adjust its mask
+    """
+    coords = image.getbbox()
+    return image.crop(coords), mask.crop(coords)

@@ -49,6 +49,7 @@ else:
 for i, target_name in enumerate(target_names):
     # Pillow image object initialisation
     target = Image.open(target_name)
+    original_target = target.copy()
     if args.resize != 1:
         oldTarget = target
         target = image_manips.resize(target, args.resize)
@@ -64,11 +65,14 @@ for i, target_name in enumerate(target_names):
             input_img = image_manips.resize(input_img, args.resize)
             oldinput.close()
         applied_mask = image_manips.applyMask(input_img, target)
+        applied_mask, original_target = image_manips.cropBlack(applied_mask, original_target)
         applied_mask.save(output_names[i])
         applied_mask.close()
         input_img.close()
+        original_target.save(os.path.join(os.path.dirname(output_names[i]), "mask_" + os.path.basename(output_names[i])))
 
     else:
         # Save output
         target.save(output_names[i])
     target.close()
+    original_target.close()
