@@ -65,11 +65,12 @@ for i, target_name in enumerate(target_names):
             input_img = image_manips.resize(input_img, args.resize)
             oldinput.close()
         applied_mask = image_manips.applyMask(input_img, target)
+        original_target = original_target.resize(applied_mask.size, Image.BICUBIC)
         applied_mask, original_target = image_manips.cropBlack(applied_mask, original_target)
-        applied_mask.save(output_names[i])
+        applied_mask.save(os.path.join(os.path.dirname(output_names[i]), "applied_" + os.path.basename(output_names[i])))
         applied_mask.close()
         input_img.close()
-        original_target.save(os.path.join(os.path.dirname(output_names[i]), "mask_" + os.path.basename(output_names[i])))
+        original_target.save(output_names[i])
 
     else:
         # Save output
