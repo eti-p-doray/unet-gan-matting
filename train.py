@@ -61,20 +61,20 @@ def train(epoch):
     for batch_idx, batch_range in enumerate(batch(range(0, len(data_names)), args.batch_size)):
         images, masks = [], []
         for item_idx in batch_range:
-            image = Image.open(os.path.join(args.data, data_names[item_idx]))
-            mask = Image.open(os.path.join(args.truth, truth_names[item_idx]))
-            image, mask = resize(image, 4), resize(mask, 4)
-            image = applyMask(image, getBoundingBox(mask, 0))
-            #image, mask = cropBlack(image, mask) # TODO support variable size
+            with Image.open(os.path.join(args.data, data_names[item_idx])) as image, \
+                 Image.open(os.path.join(args.truth, truth_names[item_idx])) as mask:
+                image, mask = resize(image, 4), resize(mask, 4)
+                image = applyMask(image, getBoundingBox(mask, 0))
+                image = np.array(image).transpose((2, 0, 1))
+                mask = np.array(mask, ndmin=3)
 
-            # swap color axis because
-            # numpy image: H x W x C
-            # torch image: C X H X W
-            images.append(np.array(image).transpose((2, 0, 1)).tolist())
-            masks.append(np.array(mask, ndmin=3).tolist())
+                #image, mask = cropBlack(image, mask) # TODO support variable size
 
-            image.close()
-            mask.close()
+                # swap color axis because
+                # numpy image: H x W x C
+                # torch image: C X H X W
+                images.append(image)
+                masks.append(mask)
 
         batch_data, batch_truth = torch.FloatTensor(np.array(images)), torch.ByteTensor(np.array(masks))
 
@@ -125,4 +125,4 @@ def test():
 
 for epoch in range(1, args.epoch + 1):
     train(epoch)
-    test()
+    #test()
