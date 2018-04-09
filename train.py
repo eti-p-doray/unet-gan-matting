@@ -12,7 +12,8 @@ from unet import UNet
 from myloss import dice_coeff
 from script import resize, getBoundingBox, applyMask, cropBlack
 
-log_frequency = 1
+train_data_update_freq = 1
+test_data_update_freq = 50
 
 # Parse Arguments
 parser = argparse.ArgumentParser(description="Trains the unet")
@@ -27,9 +28,14 @@ args = parser.parse_args()
 input_path = os.path.join(args.data, "input")
 trimap_path = os.path.join(args.data, "trimap")
 target_path = os.path.join(args.data, "target")
+output_path = os.path.join(args.data, "output")
 
 ids = [os.path.splitext(filename)[0].split('_') for filename in listdir(input_path)]
 np.random.shuffle(ids)
+split_point = int(round(0.99*len(ids))) #using 70% as training and 30% as Validation
+train_ids = ids[0:split_point]
+valid_ids = ids[split_point:len(ids)]
+
 
 model = UNet(4,4)
 #if use_cuda:
@@ -39,6 +45,51 @@ model = UNet(4,4)
 optimizer = tf.train.GradientDescentOptimizer(args.lr)
 #criterion = nn.MSELoss()
 
+input_images = tf.placeholder(tf.float32, shape=[None, 240, 180, 4])
+target_images = tf.placeholder(tf.float32, shape=[None, 240, 180, 4])
+
+output = tf.sigmoid(tf.squeeze(model(input_images)))
+loss = tf.losses.mean_squared_error(target_images, output)
+
+init = tf.global_variables_initializer()
+sess = tf.Session()
+sess.run(init)
+
+
+def test():
+    total_loss = 0
+    #for i, (data_name, truth_name) in enumerate(zip(data_names, truth_names)):
+    for (i, j) in valid_ids:
+        input_filename = os.path.join(input_path, str(i) + '_' + str(j) + '.jpg')
+        trimap_filename = os.path.join(trimap_path, str(i) + '_trimap.jpg')
+        target_filename = os.path.join(target_path, str(i) + '.png')
+        print(input_filename)
+        with Image.open(input_filename) as image, \
+             Image.open(trimap_filename) as trimap, \
+             Image.open(target_filename) as target:
+            image = resize(image, 4)
+            trimap = resize(trimap, 4)
+            target = resize(target, 4)
+
+            image = np.array(image)
+            trimap = np.array(trimap)[..., np.newaxis]
+            image = np.concatenate((image, trimap), axis = 2)
+
+            target = np.array(target) / 255
+
+            l, o = sess.run([loss, output], feed_dict={
+                input_images: image[np.newaxis, ...],
+                target_images: target[np.newaxis, ...],
+                })
+            total_loss += l
+
+            o = Image.fromarray((o * 255).astype(np.uint8))
+            o.save(os.path.join(output_path, str(i) + '.png'))
+
+
+    print('Validation Loss: {}'.format(total_loss / len(valid_ids)))
+
+
 def train(epoch):
 
     # from https://stackoverflow.com/questions/8290397/how-to-split-an-iterable-in-constant-size-chunks
@@ -47,17 +98,7 @@ def train(epoch):
         for ndx in range(0, l, n):
             yield iterable[ndx:min(ndx + n, l)]
 
-    input_images = tf.placeholder(tf.float32, shape=[args.batch_size, 960, 720, 4])
-    target_images = tf.placeholder(tf.float32, shape=[args.batch_size, 960, 720, 4])
-
-    output = tf.sigmoid(tf.squeeze(model(input_images)))
-    loss = tf.losses.mean_squared_error(target_images, output)
-
-    init = tf.global_variables_initializer()
-    sess = tf.Session()
-    sess.run(init)
-
-    for batch_idx, batch_range in enumerate(batch(ids, args.batch_size)):
+    for batch_idx, batch_range in enumerate(batch(train_ids, args.batch_size)):
         images, targets = [], []
         for i, j in batch_range:
             input_filename = os.path.join(input_path, str(i) + '_' + str(j) + '.jpg')
@@ -67,6 +108,10 @@ def train(epoch):
             with Image.open(input_filename) as image, \
                  Image.open(trimap_filename) as trimap, \
                  Image.open(target_filename) as target:
+
+                image = resize(image, 4)
+                trimap = resize(trimap, 4)
+                target = resize(target, 4)
 
                 image = np.array(image)
                 trimap = np.array(trimap)[..., np.newaxis]
@@ -82,39 +127,14 @@ def train(epoch):
             target_images: np.array(targets),
             })
 
-        if batch_idx % log_frequency == 0:
+        if batch_idx % train_data_update_freq == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, (batch_idx+1) * args.batch_size, len(ids),
                 100. * (batch_idx+1) * args.batch_size / len(ids), l))
 
-"""def test():
-    model.eval()
-    tot_dice = 0
-    for i, (data_name, truth_name) in enumerate(zip(data_names, truth_names)):
-        image = Image.open(os.path.join(args.data, data_name))
-        mask = Image.open(os.path.join(args.truth, truth_name))
-        image, mask = resize(image, 2), resize(mask, 2)
-        image = applyMask(image, getBoundingBox(mask, 20))
-        #image, mask = cropBlack(image, mask)
-
-        iter_data, iter_truth = torch.FloatTensor(np.array(image, ndmin=4).transpose(0,3,1,2)), torch.ByteTensor(np.array(mask, ndmin=4))
-        if use_cuda:
-            iter_data, iter_truth = iter_data.cuda(), iter_truth.cuda()
-
-        image.close()
-        mask.close()
-
-        data, truth = Variable(iter_data, volatile=True), Variable(iter_truth, volatile=True)
-
-        output = model(data)
-        output_probs = (F.sigmoid(output) > 0.6).float()
-
-        dice = dice_coeff(output_probs, truth.float()).data[0]
-        tot_dice += dice
-
-    print('Validation Dice Coeff: {}'.format(tot_dice / len(data_names)))"""
+        if batch_idx % test_data_update_freq == 0:
+            test()
 
 
 for epoch in range(1, args.epoch + 1):
     train(epoch)
-    #test()
