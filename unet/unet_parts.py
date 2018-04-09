@@ -4,94 +4,70 @@
 
 import math
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import tensorflow as tf
 
-
-class double_conv(nn.Module):
-    '''(conv => BN => ReLU) * 2'''
-    def __init__(self, in_ch, out_ch):
-        super(double_conv, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        x = self.conv(x)
-        return x
-
-
-class inconv(nn.Module):
+class inconv():
     def __init__(self, in_ch, out_ch):
         super(inconv, self).__init__()
+        self.out_ch = out_ch
 
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
-        )
 
-    def forward(self, x):
-        x = self.conv(x)
+
+    def __call__(self, x):
+        x = tf.layers.conv2d(x, filters=self.out_ch, kernel_size=3, padding="same")
+        x = tf.contrib.layers.batch_norm(x)
+        x = tf.nn.relu(x)
+        x = tf.layers.conv2d(x, filters=self.out_ch, kernel_size=3, padding="same")
+        x = tf.contrib.layers.batch_norm(x)
+        x = tf.nn.relu(x)
         return x
 
 
-class down(nn.Module):
+class down():
     def __init__(self, in_ch, out_ch):
         super(down, self).__init__()
-        self.down = nn.Sequential(
-            nn.MaxPool2d(2),
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-        )
+        self.out_ch = out_ch
 
 
-    def forward(self, x):
-        x = self.down(x)
+    def __call__(self, x):
+        x = tf.layers.max_pooling2d(x, pool_size=[2,2], strides=2)
+        x = tf.layers.conv2d(x, filters=self.out_ch,
+                kernel_size=3, padding="same")
+        x = tf.contrib.layers.batch_norm(x)
+        x = tf.nn.relu(x)
+        x = tf.layers.conv2d(x, filters=self.out_ch,
+                kernel_size=3, padding="same")
+        x = tf.contrib.layers.batch_norm(x)
+        x = tf.nn.relu(x)
         return x
 
 
-class up(nn.Module):
+class up():
     def __init__(self, in_ch, out_ch, bilinear=True):
         super(up, self).__init__()
+        self.out_ch = out_ch
 
-        self.up = nn.ConvTranspose2d(in_ch, out_ch, 3, stride = 2, padding=1)
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, 3, padding=1),
-            nn.ReLU(inplace=True)
-        )
+    def __call__(self, x1, x2):
+        x1 = tf.layers.conv2d_transpose(x1, filters=self.out_ch,
+            kernel_size=3, strides=(2, 2), padding="same")
 
-    def forward(self, x1, x2):
-        x1 = self.up(x1)
-        diffX = x2.size()[2] - x1.size()[2]
-        diffY = x2.size()[3] - x1.size()[3]
-        x1 = F.pad(x1, (math.floor(diffY / 2), math.ceil(diffY / 2),
-            math.floor(diffX / 2), math.ceil(diffX / 2)))
-        x = torch.cat([x2, x1], dim=1)
-        x = self.conv(x)
+        x = tf.concat([x2, x1], axis=3)
+        x = tf.layers.conv2d(x, filters=self.out_ch,
+                kernel_size=3, padding="same")
+        x = tf.contrib.layers.batch_norm(x)
+        x = tf.nn.relu(x)
+        x = tf.layers.conv2d(x, filters=self.out_ch,
+                kernel_size=3, padding="same")
+        x = tf.contrib.layers.batch_norm(x)
+        x = tf.nn.relu(x)
         return x
 
 
-class outconv(nn.Module):
+class outconv():
     def __init__(self, in_ch, out_ch):
         super(outconv, self).__init__()
-        self.conv = nn.Conv2d(in_ch, out_ch, 1)
+        self.out_ch = out_ch
 
-    def forward(self, x):
-        x = self.conv(x)
+    def __call__(self, x):
+        x = tf.layers.conv2d(x, filters=self.out_ch, kernel_size=1)
         return x

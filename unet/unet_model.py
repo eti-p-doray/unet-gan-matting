@@ -1,15 +1,13 @@
 #!/usr/bin/python3
 # full assembly of the sub-parts to form the complete net
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import tensorflow as tf
 
 # python 3 confusing imports :(
 from .unet_parts import *
 
 
-class UNet(nn.Module):
+class UNet():
     def __init__(self, in_ch, out_ch):
         super(UNet, self).__init__()
         n_channels = [
@@ -28,7 +26,7 @@ class UNet(nn.Module):
         self.up6 = up(n_channels[1], n_channels[0])
         self.outc = outconv(n_channels[0], out_ch)
 
-    def forward(self, x):
+    def __call__(self, x):
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)

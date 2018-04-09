@@ -1,10 +1,6 @@
 #!/usr/bin/python3
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.autograd import Variable
+import tensorflow as tf
 
 import argparse
 from os import listdir
@@ -28,8 +24,6 @@ parser.add_argument("-b", dest="batch_size", type=int, default=4, help="Size of 
 parser.add_argument("--cpu", dest="cpu", action="store_true", required=False, help="Use CPU instead of CUDA.")
 args = parser.parse_args()
 
-use_cuda = args.cpu or torch.cuda.is_available()
-
 input_path = os.path.join(args.data, "input")
 trimap_path = os.path.join(args.data, "trimap")
 target_path = os.path.join(args.data, "target")
@@ -38,21 +32,30 @@ ids = [os.path.splitext(filename)[0].split('_') for filename in listdir(input_pa
 np.random.shuffle(ids)
 
 model = UNet(4,4)
-if use_cuda:
-    model.cuda()
-    print("Using CUDA")
+#if use_cuda:
+#    model.cuda()
+#    print("Using CUDA")
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-criterion = nn.MSELoss()
+optimizer = tf.train.GradientDescentOptimizer(args.lr)
+#criterion = nn.MSELoss()
 
 def train(epoch):
-    model.train()
 
     # from https://stackoverflow.com/questions/8290397/how-to-split-an-iterable-in-constant-size-chunks
     def batch(iterable, n=1):
         l = len(iterable)
         for ndx in range(0, l, n):
             yield iterable[ndx:min(ndx + n, l)]
+
+    input_images = tf.placeholder(tf.float32, shape=[args.batch_size, 960, 720, 4])
+    target_images = tf.placeholder(tf.float32, shape=[args.batch_size, 960, 720, 4])
+
+    output = tf.sigmoid(tf.squeeze(model(input_images)))
+    loss = tf.losses.mean_squared_error(target_images, output)
+
+    init = tf.global_variables_initializer()
+    sess = tf.Session()
+    sess.run(init)
 
     for batch_idx, batch_range in enumerate(batch(ids, args.batch_size)):
         images, targets = [], []
@@ -65,39 +68,26 @@ def train(epoch):
                  Image.open(trimap_filename) as trimap, \
                  Image.open(target_filename) as target:
 
-                # swap color axis because
-                # numpy image: H x W x C
-                # torch image: C X H X W
-                image = np.array(image).transpose((2, 0, 1))
-                trimap = np.array(trimap)[np.newaxis, ...]
-                print(image.shape, trimap.shape)
-                image = np.concatenate((image, trimap), axis = 0)
-                target = np.array(target, ndmin=3) / 255
+                image = np.array(image)
+                trimap = np.array(trimap)[..., np.newaxis]
+
+                image = np.concatenate((image, trimap), axis = 2)
+                target = np.array(target) / 255
 
                 images.append(image)
                 targets.append(target)
 
-        batch_input = torch.FloatTensor(np.array(images))
-        batch_target = torch.FloatTensor(np.array(targets))
-
-        if use_cuda:
-            batch_input, batch_target = batch_input.cuda(), batch_target.cuda()
-        batch_input, batch_target = Variable(batch_input), Variable(batch_target)
-
-        optimizer.zero_grad()
-
-        output = model(batch_input)
-        predicted = F.sigmoid(output).view(-1)
-        loss = criterion(predicted, batch_target.view(-1))
-        loss.backward()
-        optimizer.step()
+        _, l = sess.run([optimizer.minimize(loss), loss], feed_dict={
+            input_images: np.array(images),
+            target_images: np.array(targets),
+            })
 
         if batch_idx % log_frequency == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, (batch_idx+1) * len(batch_input), len(ids),
-                100. * (batch_idx+1) * len(batch_input) / len(ids), loss.data[0]))
+                epoch, (batch_idx+1) * args.batch_size, len(ids),
+                100. * (batch_idx+1) * args.batch_size / len(ids), l))
 
-def test():
+"""def test():
     model.eval()
     tot_dice = 0
     for i, (data_name, truth_name) in enumerate(zip(data_names, truth_names)):
@@ -122,7 +112,7 @@ def test():
         dice = dice_coeff(output_probs, truth.float()).data[0]
         tot_dice += dice
 
-    print('Validation Dice Coeff: {}'.format(tot_dice / len(data_names)))
+    print('Validation Dice Coeff: {}'.format(tot_dice / len(data_names)))"""
 
 
 for epoch in range(1, args.epoch + 1):
