@@ -30,7 +30,15 @@ class double_conv(nn.Module):
 class inconv(nn.Module):
     def __init__(self, in_ch, out_ch):
         super(inconv, self).__init__()
-        self.conv = nn.Conv2d(in_ch, out_ch, 3, padding=1)
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, 3, padding=1),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_ch, out_ch, 3, padding=1),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True)
+        )
 
     def forward(self, x):
         x = self.conv(x)
@@ -43,6 +51,9 @@ class down(nn.Module):
         self.down = nn.Sequential(
             nn.MaxPool2d(2),
             nn.Conv2d(in_ch, out_ch, 3, padding=1),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_ch, out_ch, 3, padding=1),
             nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=True),
         )
@@ -59,7 +70,9 @@ class up(nn.Module):
 
         self.up = nn.ConvTranspose2d(in_ch, out_ch, 3, stride = 2, padding=1)
         self.conv = nn.Sequential(
-            nn.ConvTranspose2d(in_ch, out_ch, 3, padding=1),
+            nn.Conv2d(in_ch, out_ch, 3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_ch, out_ch, 3, padding=1),
             nn.ReLU(inplace=True)
         )
 

@@ -15,21 +15,26 @@ class UNet(nn.Module):
         n_channels = [
             8,
             16,
-            32
+            32,
+            64,
         ]
 
         self.inc = inconv(in_ch, n_channels[0])
         self.down1 = down(n_channels[0], n_channels[1])
         self.down2 = down(n_channels[1], n_channels[2])
-        self.up3 = up(n_channels[2], n_channels[1])
-        self.up4 = up(n_channels[1], n_channels[0])
+        self.down3 = down(n_channels[2], n_channels[3])
+        self.up4 = up(n_channels[3], n_channels[2])
+        self.up5 = up(n_channels[2], n_channels[1])
+        self.up6 = up(n_channels[1], n_channels[0])
         self.outc = outconv(n_channels[0], out_ch)
 
     def forward(self, x):
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
-        x = self.up3(x3, x2)
-        x = self.up4(x, x1)
+        x4 = self.down3(x3)
+        x = self.up4(x4, x3)
+        x = self.up5(x, x2)
+        x = self.up6(x, x1)
         x = self.outc(x)
         return x
