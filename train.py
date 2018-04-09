@@ -21,7 +21,6 @@ log_frequency = 1
 # Parse Arguments
 parser = argparse.ArgumentParser(description="Trains the unet")
 parser.add_argument("data", type=str, help="Path to a folder containing data to train")
-parser.add_argument("truth", type=str, help="Path to a folder containing the ground truth to train with")
 parser.add_argument("--lr", type=float, default=0.01, help="Learning rate used to optimize")
 parser.add_argument("-m", dest="momentum", type=float, default=0.5, help="Momentum used by the optimizer")
 parser.add_argument("-e", dest="epoch", type=int, default=5, help="Number of training epochs")
@@ -31,23 +30,20 @@ args = parser.parse_args()
 
 use_cuda = args.cpu or torch.cuda.is_available()
 
-data_names = listdir(args.data)
-data_names.sort()
+input_path = os.path.join(args.data, "input")
+trimap_path = os.path.join(args.data, "trimap")
+target_path = os.path.join(args.data, "target")
 
-truth_names = listdir(args.truth)
-truth_names.sort()
+ids = [os.path.splitext(filename)[0].split('_') for filename in listdir(input_path)]
+np.random.shuffle(ids)
 
-if len(data_names) != len(truth_names):
-    print("Need the same amount of data and truth")
-    exit(-1)
-
-model = UNet(3,1)
+model = UNet(4,4)
 if use_cuda:
     model.cuda()
     print("Using CUDA")
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-criterion = nn.BCELoss()
+criterion = nn.MSELoss()
 
 def train(epoch):
     model.train()
@@ -58,42 +54,48 @@ def train(epoch):
         for ndx in range(0, l, n):
             yield iterable[ndx:min(ndx + n, l)]
 
-    for batch_idx, batch_range in enumerate(batch(range(0, len(data_names)), args.batch_size)):
-        images, masks = [], []
-        for item_idx in batch_range:
-            with Image.open(os.path.join(args.data, data_names[item_idx])) as image, \
-                 Image.open(os.path.join(args.truth, truth_names[item_idx])) as mask:
-                image, mask = resize(image, 4), resize(mask, 4)
-                image = applyMask(image, getBoundingBox(mask, 0))
-                image = np.array(image).transpose((2, 0, 1))
-                mask = np.array(mask, ndmin=3)
-
-                #image, mask = cropBlack(image, mask) # TODO support variable size
+    for batch_idx, batch_range in enumerate(batch(ids, args.batch_size)):
+        images, targets = [], []
+        for i, j in batch_range:
+            input_filename = os.path.join(input_path, str(i) + '_' + str(j) + '.jpg')
+            trimap_filename = os.path.join(trimap_path, str(i) + '_trimap.jpg')
+            target_filename = os.path.join(target_path, str(i) + '.png')
+            print(input_filename)
+            with Image.open(input_filename) as image, \
+                 Image.open(trimap_filename) as trimap, \
+                 Image.open(target_filename) as target:
 
                 # swap color axis because
                 # numpy image: H x W x C
                 # torch image: C X H X W
-                images.append(image)
-                masks.append(mask)
+                image = np.array(image).transpose((2, 0, 1))
+                trimap = np.array(trimap)[np.newaxis, ...]
+                print(image.shape, trimap.shape)
+                image = np.concatenate((image, trimap), axis = 0)
+                target = np.array(target, ndmin=3) / 255
 
-        batch_data, batch_truth = torch.FloatTensor(np.array(images)), torch.ByteTensor(np.array(masks))
+                images.append(image)
+                targets.append(target)
+
+        batch_input = torch.FloatTensor(np.array(images))
+        batch_target = torch.FloatTensor(np.array(targets))
 
         if use_cuda:
-            batch_data, batch_truth = batch_data.cuda(), batch_truth.cuda()
-        data, truth = Variable(batch_data), Variable(batch_truth)
+            batch_input, batch_target = batch_input.cuda(), batch_target.cuda()
+        batch_input, batch_target = Variable(batch_input), Variable(batch_target)
 
         optimizer.zero_grad()
 
-        output = model(data)
-        output_probs = F.sigmoid(output).view(-1)
-        loss = criterion(output_probs, truth.view(-1).float())
+        output = model(batch_input)
+        predicted = F.sigmoid(output).view(-1)
+        loss = criterion(predicted, batch_target.view(-1))
         loss.backward()
         optimizer.step()
 
         if batch_idx % log_frequency == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, (batch_idx+1) * len(data), len(data_names),
-                100. * (batch_idx+1) * len(data) / len(data_names), loss.data[0]))
+                epoch, (batch_idx+1) * len(batch_input), len(ids),
+                100. * (batch_idx+1) * len(batch_input) / len(ids), loss.data[0]))
 
 def test():
     model.eval()
