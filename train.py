@@ -74,12 +74,12 @@ target_images = tf.placeholder(tf.float32, shape=[None, 240, 180, 4])
 alpha = target_images[:,:,:,3][..., np.newaxis]
 
 with tf.variable_scope("Gen"):
-    gen = UNet(4,1)
+    gen = UNet(4,4)
     output = tf.sigmoid(gen(input_images))
-    g_loss = tf.losses.mean_squared_error(alpha, output)
+    g_loss = tf.losses.mean_squared_error(target_images, output)
 with tf.variable_scope("Disc"):
-    disc = Discriminator(1)
-    d_real = disc(alpha)
+    disc = Discriminator(4)
+    d_real = disc(target_images)
     d_fake = disc(output)
     d_loss = tf.reduce_mean(tf.log(d_real) + tf.log(1-d_fake))
 
