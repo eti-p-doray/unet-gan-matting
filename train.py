@@ -49,13 +49,13 @@ if not os.path.isdir(output_path):
 if not os.path.isdir(args.logdir):
     os.makedirs(args.logdir)
 
-ids = [os.path.splitext(filename)[0].split('_') for filename in os.listdir(input_path)]
+ids = [[int(i) for i in os.path.splitext(filename)[0].split('_')] for filename in os.listdir(input_path)]
 np.random.shuffle(ids)
 split_point = int(round(0.99*len(ids))) #using 70% as training and 30% as Validation
-train_ids = ids[0:split_point]
-valid_ids = ids[split_point:len(ids)]
+train_ids = tf.get_variable('train_ids', initializer=ids[0:split_point], trainable=False)
+valid_ids = tf.get_variable('valid_ids', initializer=ids[split_point:len(ids)], trainable=False)
 
-n_iter = int(args.nb_epoch * len(train_ids) / args.batch_size)
+n_iter = int(args.nb_epoch * int(train_ids.shape[0]) / args.batch_size)
 
 global_step = tf.get_variable('global_step', initializer=0, trainable=False)
 
@@ -105,6 +105,9 @@ if args.checkpoint is not None and os.path.exists(os.path.join(args.logdir, 'che
         saver.restore(sess, os.path.join(args.logdir, model_name+".ckpt-"+str(args.checkpoint)))
     logging.debug('Model restored to step ' + str(global_step.eval(sess)))
 
+
+train_ids = list(train_ids.eval(sess))
+valid_ids = list(valid_ids.eval(sess))
 
 # from https://stackoverflow.com/questions/8290397/how-to-split-an-iterable-in-constant-size-chunks
 def batch(iterable, n=1):
@@ -168,7 +171,7 @@ def g_train_step(batch_idx):
         })
 
     if batch_idx % train_data_update_freq == 0:
-        logging.info('Adv Train: [{}/{} ({:.0f}%)]\tGen Loss: {:.8f}'.format(
+        logging.info('Gen Train: [{}/{} ({:.0f}%)]\tGen Loss: {:.8f}'.format(
             batch_idx+1, n_iter,
             100. * (batch_idx+1) / n_iter, gl))
 
