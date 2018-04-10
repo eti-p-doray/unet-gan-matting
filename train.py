@@ -24,7 +24,11 @@ parser.add_argument("--lr", type=float, default=1.0,
     help="Learning rate used to optimize")
 parser.add_argument("--d_coeff", type=float, default=1.0,
     help="Discriminator loss coefficient")
-parser.add_argument("--nb_epoch", dest="nb_epoch", type=int, default=5,
+parser.add_argument("--gen_epoch", type=int, default=3,
+    help="Number of training epochs")
+parser.add_argument("--disc_epoch", type=int, default=1,
+    help="Number of training epochs")
+parser.add_argument("--adv_epoch", type=int, default=5,
     help="Number of training epochs")
 parser.add_argument("--batch_size", dest="batch_size", type=int, default=4,
     help="Size of the batches used in training")
@@ -57,7 +61,10 @@ valid_ids = tf.get_variable('valid_ids', initializer=ids[split_point:len(ids)], 
 
 global_step = tf.get_variable('global_step', initializer=0, trainable=False)
 
-n_iter = int(args.nb_epoch * int(train_ids.shape[0]))
+g_iter = int(args.gen_epoch * int(train_ids.shape[0]))
+d_iter = int(args.disc_epoch * int(train_ids.shape[0]))
+a_iter = int(args.adv_epoch * int(train_ids.shape[0]))
+n_iter = g_iter+d_iter+a_iter
 
 def apply_trimap(images, output, alpha):
     masked_output = []
@@ -223,9 +230,9 @@ batch_idx = 0
 while batch_idx < n_iter:
     batch_idx = global_step.eval(sess) * args.batch_size
 
-    if batch_idx < 8000:
+    if batch_idx < g_iter:
         g_train_step(batch_idx)
-    elif batch_idx < 10000:
+    elif batch_idx < d_iter+g_iter:
         d_train_step(batch_idx)
     else:
         a_train_step(batch_idx)
