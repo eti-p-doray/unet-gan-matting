@@ -44,6 +44,9 @@ output_path = os.path.join(args.data, "output")
 if not os.path.isdir(output_path):
     os.makedirs(output_path)
 
+if not os.path.isdir(args.logdir):
+    os.makedirs(args.logdir)
+
 ids = [os.path.splitext(filename)[0].split('_') for filename in os.listdir(input_path)]
 np.random.shuffle(ids)
 split_point = int(round(0.99*len(ids))) #using 70% as training and 30% as Validation
