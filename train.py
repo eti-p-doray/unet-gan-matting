@@ -92,6 +92,8 @@ a_loss_summary = tf.summary.scalar("a_loss", a_loss)
 summary_op = tf.summary.merge(
     [g_loss_summary, d_loss_summary, a_loss_summary])
 
+summary_image = tf.summary.image("result", output)
+
 g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Gen')
 d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Disc')
 
@@ -154,16 +156,13 @@ def test_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    loss, demo, summary = sess.run([g_loss, output, summary_op], feed_dict={
+    loss, demo, summary = sess.run([g_loss, summary_image, summary_op], feed_dict={
         input_images: images,
         target_images: targets,
         })
 
     test_writer.add_summary(summary, batch_idx)
-
-    for idx, (i,j) in enumerate(batch_range):
-        image = Image.fromarray((demo[idx,:,:,0] * 255).astype(np.uint8))
-        image.save(os.path.join(output_path, str(i) + '.png'))
+    test_writer.add_summary(demo, batch_idx)
 
     logging.info('Validation Loss: {:.8f}'.format(loss / len(batch_range)))
 
