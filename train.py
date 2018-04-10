@@ -55,9 +55,9 @@ split_point = int(round(0.99*len(ids))) #using 70% as training and 30% as Valida
 train_ids = tf.get_variable('train_ids', initializer=ids[0:split_point], trainable=False)
 valid_ids = tf.get_variable('valid_ids', initializer=ids[split_point:len(ids)], trainable=False)
 
-n_iter = int(args.nb_epoch * int(train_ids.shape[0]) / args.batch_size)
-
 global_step = tf.get_variable('global_step', initializer=0, trainable=False)
+
+n_iter = int(args.nb_epoch * int(train_ids.shape[0]) / args.batch_size)
 
 def apply_trimap(images, output, alpha):
     masked_output = []
@@ -71,8 +71,7 @@ def apply_trimap(images, output, alpha):
 
 input_images = tf.placeholder(tf.float32, shape=[None, 240, 180, 4])
 target_images = tf.placeholder(tf.float32, shape=[None, 240, 180, 4])
-alpha = target_images[:,:,:,3]
-alpha = alpha[..., np.newaxis]
+alpha = target_images[:,:,:,3][..., np.newaxis]
 
 with tf.variable_scope("Gen"):
     gen = UNet(4,1)
@@ -86,6 +85,13 @@ with tf.variable_scope("Disc"):
 
 a_loss = g_loss + args.d_coeff * d_loss
 
+g_loss_summary = tf.summary.scalar("g_loss", g_loss)
+d_loss_summary = tf.summary.scalar("d_loss", d_loss)
+a_loss_summary = tf.summary.scalar("a_loss", a_loss)
+
+summary_op = tf.summary.merge(
+    [g_loss_summary, d_loss_summary, a_loss_summary])
+
 g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Gen')
 d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Disc')
 
@@ -97,6 +103,8 @@ init = tf.global_variables_initializer()
 sess = tf.Session()
 sess.run(init)
 
+train_writer = tf.summary.FileWriter(args.logdir + '/train', graph=tf.get_default_graph())
+test_writer = tf.summary.FileWriter(args.logdir + '/test', graph=tf.get_default_graph())
 saver = tf.train.Saver()
 if args.checkpoint is not None and os.path.exists(os.path.join(args.logdir, 'checkpoint')):
     if args.checkpoint == -1:#latest checkpoint
@@ -147,17 +155,18 @@ def test_step():
     for batch_range in batch(valid_ids, args.batch_size):
         images, targets = load_batch(batch_range)
 
-        l, o = sess.run([g_loss, output], feed_dict={
+        loss, demo, summary = sess.run([g_loss, output, summary_op], feed_dict={
             input_images: images,
             target_images: targets,
             })
-        total_loss += l*args.batch_size
+        total_loss += loss*args.batch_size
 
         for idx, (i,j) in enumerate(batch_range):
-            image = Image.fromarray((o[idx,:,:,0] * 255).astype(np.uint8))
+            image = Image.fromarray((demo[idx,:,:,0] * 255).astype(np.uint8))
             image.save(os.path.join(output_path, str(i) + '.png'))
 
-    logging.info('Validation Loss: {}'.format(total_loss / len(valid_ids)))
+    logging.info('Validation Loss: {:.8f}'.format(total_loss / len(valid_ids)))
+    test_writer.add_summary(summary, batch_idx)
 
 
 def g_train_step(batch_idx):
@@ -165,15 +174,17 @@ def g_train_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    _, gl = sess.run([g_optimizer, g_loss], feed_dict={
+    _, loss, summary = sess.run([g_optimizer, g_loss, summary_op], feed_dict={
         input_images: np.array(images),
         target_images: np.array(targets),
         })
 
     if batch_idx % train_data_update_freq == 0:
         logging.info('Gen Train: [{}/{} ({:.0f}%)]\tGen Loss: {:.8f}'.format(
-            batch_idx+1, n_iter,
-            100. * (batch_idx+1) / n_iter, gl))
+            batch_idx, n_iter,
+            100. * batch_idx / n_iter, loss))
+
+        train_writer.add_summary(summary, batch_idx)
 
 
 def d_train_step(batch_idx):
@@ -181,15 +192,17 @@ def d_train_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    _, dl = sess.run([d_optimizer, d_loss], feed_dict={
+    _, loss, summary = sess.run([d_optimizer, d_loss, summary_op], feed_dict={
         input_images: np.array(images),
         target_images: np.array(targets),
         })
 
     if batch_idx % train_data_update_freq == 0:
         logging.info('Disc Train: [{}/{} ({:.0f}%)]Disc Loss: {:.8f}'.format(
-            batch_idx+1, n_iter,
-            100. * (batch_idx+1) / n_iter, dl))
+            batch_idx, n_iter,
+            100. * batch_idx / n_iter, loss))
+
+        train_writer.add_summary(summary, batch_idx)
 
 
 def a_train_step(batch_idx):
@@ -197,15 +210,16 @@ def a_train_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    _, gl, dl = sess.run([a_optimizer, g_loss, d_loss], feed_dict={
+    _, loss, summary = sess.run([a_optimizer, a_loss, train_summary_op], feed_dict={
         input_images: np.array(images),
-        target_images: np.array(targets),
-        })
+        target_images: np.array(targets)})
 
     if batch_idx % train_data_update_freq == 0:
-        logging.info('Adv Train: [{}/{} ({:.0f}%)]\tGen Loss: {:.8f}\tDisc Loss: {:.8f}'.format(
-            batch_idx+1, n_iter,
-            100. * (batch_idx+1) / n_iter, gl, dl))
+        logging.info('Adv Train: [{}/{} ({:.0f}%)]\tGen Loss: {:.8f}'.format(
+            batch_idx, n_iter,
+            100. * (batch_idx+1) / n_iter, loss))
+
+        train_writer.add_summary(summary, batch_idx)
 
 
 while global_step.eval(sess) < n_iter:
@@ -217,7 +231,6 @@ while global_step.eval(sess) < n_iter:
         d_train_step(batch_idx)
     else:
         a_train_step(batch_idx)
-    batch_idx = global_step.eval(sess)
 
     if batch_idx % test_data_update_freq == 0:
         test_step()
