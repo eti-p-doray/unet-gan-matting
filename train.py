@@ -103,8 +103,8 @@ init = tf.global_variables_initializer()
 sess = tf.Session()
 sess.run(init)
 
-train_writer = tf.summary.FileWriter(args.logdir + '/train', graph=tf.get_default_graph())
-test_writer = tf.summary.FileWriter(args.logdir + '/test', graph=tf.get_default_graph())
+train_writer = tf.summary.FileWriter(args.logdir + '/train')
+test_writer = tf.summary.FileWriter(args.logdir + '/test')
 saver = tf.train.Saver()
 if args.checkpoint is not None and os.path.exists(os.path.join(args.logdir, 'checkpoint')):
     if args.checkpoint == -1:#latest checkpoint
@@ -161,12 +161,13 @@ def test_step(batch_idx):
             })
         total_loss += loss*args.batch_size
 
+        test_writer.add_summary(summary, batch_idx)
+
         for idx, (i,j) in enumerate(batch_range):
             image = Image.fromarray((demo[idx,:,:,0] * 255).astype(np.uint8))
             image.save(os.path.join(output_path, str(i) + '.png'))
 
     logging.info('Validation Loss: {:.8f}'.format(total_loss / len(valid_ids)))
-    test_writer.add_summary(summary, batch_idx)
 
 
 def g_train_step(batch_idx):
@@ -174,7 +175,7 @@ def g_train_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    _, loss, summary = sess.run([g_optimizer, g_loss, summary_op], feed_dict={
+    loss, summary, _ = sess.run([g_loss, summary_op, g_optimizer], feed_dict={
         input_images: np.array(images),
         target_images: np.array(targets),
         })
@@ -192,7 +193,7 @@ def d_train_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    _, loss, summary = sess.run([d_optimizer, d_loss, summary_op], feed_dict={
+    loss, summary, _ = sess.run([d_loss, summary_op, d_optimizer], feed_dict={
         input_images: np.array(images),
         target_images: np.array(targets),
         })
@@ -210,7 +211,7 @@ def a_train_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    _, loss, summary = sess.run([a_optimizer, a_loss, train_summary_op], feed_dict={
+    loss, summary, _ = sess.run([a_loss, summary_op, a_optimizer], feed_dict={
         input_images: np.array(images),
         target_images: np.array(targets)})
 
