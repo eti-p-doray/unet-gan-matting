@@ -149,7 +149,7 @@ def load_batch(batch_ids):
     return np.asarray(images), np.asarray(targets)
 
 
-def test_step():
+def test_step(batch_idx):
     total_loss = 0
 
     for batch_range in batch(valid_ids, args.batch_size):
@@ -233,7 +233,7 @@ while global_step.eval(sess) < n_iter:
         a_train_step(batch_idx)
 
     if batch_idx % test_data_update_freq == 0:
-        test_step()
+        test_step(batch_idx)
 
     if batch_idx % sess_save_freq == 0:
         logging.debug('Saving model')
