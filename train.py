@@ -12,10 +12,6 @@ from PIL import Image
 from unet import UNet, Discriminator
 from script import resize
 
-train_data_update_freq = 1
-test_data_update_freq = 50
-sess_save_freq = 100
-
 model_name = "matting"
 
 logging.basicConfig(level=logging.INFO)
@@ -30,7 +26,7 @@ parser.add_argument("--d_coeff", type=float, default=1.0,
     help="Discriminator loss coefficient")
 parser.add_argument("--nb_epoch", dest="nb_epoch", type=int, default=5,
     help="Number of training epochs")
-parser.add_argument("--batch_size", dest="batch_size", type=int, default=4,
+parser.add_argument("--batch_size", dest="batch_size", type=int, default=8,
     help="Size of the batches used in training")
 parser.add_argument('--checkpoint', type=int, default=None,
     help='Saved session checkpoint, -1 for latest.')
@@ -43,6 +39,10 @@ trimap_path = os.path.join(args.data, "trimap")
 target_path = os.path.join(args.data, "target")
 output_path = os.path.join(args.data, "output")
 
+train_data_update_freq = args.batch_size
+test_data_update_freq = 50*args.batch_size
+sess_save_freq = 100*args.batch_size
+
 if not os.path.isdir(output_path):
     os.makedirs(output_path)
 
@@ -51,13 +51,13 @@ if not os.path.isdir(args.logdir):
 
 ids = [[int(i) for i in os.path.splitext(filename)[0].split('_')] for filename in os.listdir(input_path)]
 np.random.shuffle(ids)
-split_point = int(round(0.99*len(ids))) #using 70% as training and 30% as Validation
+split_point = int(round(0.85*len(ids))) #using 70% as training and 30% as Validation
 train_ids = tf.get_variable('train_ids', initializer=ids[0:split_point], trainable=False)
 valid_ids = tf.get_variable('valid_ids', initializer=ids[split_point:len(ids)], trainable=False)
 
 global_step = tf.get_variable('global_step', initializer=0, trainable=False)
 
-n_iter = int(args.nb_epoch * int(train_ids.shape[0]) / args.batch_size)
+n_iter = int(args.nb_epoch * int(train_ids.shape[0]))
 
 def apply_trimap(images, output, alpha):
     masked_output = []
@@ -150,24 +150,22 @@ def load_batch(batch_ids):
 
 
 def test_step(batch_idx):
-    total_loss = 0
+    batch_range = random.sample(train_ids, args.batch_size)
 
-    for batch_range in batch(valid_ids, args.batch_size):
-        images, targets = load_batch(batch_range)
+    images, targets = load_batch(batch_range)
 
-        loss, demo, summary = sess.run([g_loss, output, summary_op], feed_dict={
-            input_images: images,
-            target_images: targets,
-            })
-        total_loss += loss*args.batch_size
+    loss, demo, summary = sess.run([g_loss, output, summary_op], feed_dict={
+        input_images: images,
+        target_images: targets,
+        })
 
-        test_writer.add_summary(summary, batch_idx)
+    test_writer.add_summary(summary, batch_idx)
 
-        for idx, (i,j) in enumerate(batch_range):
-            image = Image.fromarray((demo[idx,:,:,0] * 255).astype(np.uint8))
-            image.save(os.path.join(output_path, str(i) + '.png'))
+    for idx, (i,j) in enumerate(batch_range):
+        image = Image.fromarray((demo[idx,:,:,0] * 255).astype(np.uint8))
+        image.save(os.path.join(output_path, str(i) + '.png'))
 
-    logging.info('Validation Loss: {:.8f}'.format(total_loss / len(valid_ids)))
+    logging.info('Validation Loss: {:.8f}'.format(loss / len(batch_range)))
 
 
 def g_train_step(batch_idx):
@@ -222,13 +220,13 @@ def a_train_step(batch_idx):
 
         train_writer.add_summary(summary, batch_idx)
 
-
-while global_step.eval(sess) < n_iter:
+batch_idx = 0
+while batch_idx < n_iter:
     batch_idx = global_step.eval(sess)
 
-    if batch_idx < 2400:
+    if batch_idx < 8000:
         g_train_step(batch_idx)
-    elif batch_idx < 2400+400:
+    elif batch_idx < 10000:
         d_train_step(batch_idx)
     else:
         a_train_step(batch_idx)
