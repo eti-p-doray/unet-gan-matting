@@ -1,4 +1,7 @@
 Pillow >= 5.0.0
 kaggle >= 1.1.0
 torch
+tensorflow >= 1.7
 numpy
+google_images_download
+opencv-python
