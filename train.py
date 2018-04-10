@@ -26,7 +26,7 @@ parser.add_argument("--d_coeff", type=float, default=1.0,
     help="Discriminator loss coefficient")
 parser.add_argument("--nb_epoch", dest="nb_epoch", type=int, default=5,
     help="Number of training epochs")
-parser.add_argument("--batch_size", dest="batch_size", type=int, default=8,
+parser.add_argument("--batch_size", dest="batch_size", type=int, default=4,
     help="Size of the batches used in training")
 parser.add_argument('--checkpoint', type=int, default=None,
     help='Saved session checkpoint, -1 for latest.')
@@ -222,7 +222,7 @@ def a_train_step(batch_idx):
 
 batch_idx = 0
 while batch_idx < n_iter:
-    batch_idx = global_step.eval(sess)
+    batch_idx = global_step.eval(sess) * args.batch_size
 
     if batch_idx < 8000:
         g_train_step(batch_idx)
