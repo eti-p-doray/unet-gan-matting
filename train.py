@@ -27,7 +27,7 @@ parser.add_argument("data", type=str,
 parser.add_argument("--lr", type=float, default=1.0,
     help="Learning rate used to optimize")
 parser.add_argument("--d_coeff", type=float, default=1.0,
-    help="Learning rate used to optimize")
+    help="Discriminator loss coefficient")
 parser.add_argument("--nb_epoch", dest="nb_epoch", type=int, default=5,
     help="Number of training epochs")
 parser.add_argument("--batch_size", dest="batch_size", type=int, default=4,
@@ -55,6 +55,8 @@ split_point = int(round(0.99*len(ids))) #using 70% as training and 30% as Valida
 train_ids = ids[0:split_point]
 valid_ids = ids[split_point:len(ids)]
 
+n_iter = int(args.nb_epoch * len(train_ids) / args.batch_size)
+
 global_step = tf.get_variable('global_step', initializer=0, trainable=False)
 
 def apply_trimap(images, output, alpha):
@@ -80,16 +82,9 @@ with tf.variable_scope("Disc"):
     disc = Discriminator(1)
     d_real = disc(alpha)
     d_fake = disc(output)
-    d_loss = tf.log(d_real) + tf.log(1-d_fake)
+    d_loss = tf.reduce_mean(tf.log(d_real) + tf.log(1-d_fake))
 
 a_loss = g_loss + args.d_coeff * d_loss
-
-#masked_output = apply_trimap(target_images, output, alpha)
-#loss = (tf.losses.mean_squared_error(tf.multiply(target_images[:,:,:,0:3], alpha), output[:,:,:,0:3]) +
-#        tf.losses.mean_squared_error(alpha, output[:,:,:,3]))
-
-
-#weights = tf.logical_and(alpha > 0.25, alpha < 0.75)
 
 g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Gen')
 d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Disc')
@@ -167,15 +162,15 @@ def g_train_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    _, l = sess.run([g_optimizer, g_loss], feed_dict={
+    _, gl = sess.run([g_optimizer, g_loss], feed_dict={
         input_images: np.array(images),
         target_images: np.array(targets),
         })
 
     if batch_idx % train_data_update_freq == 0:
-        logging.info('Train Epoch: [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-            (batch_idx+1) * args.batch_size, len(ids),
-            100. * (batch_idx+1) * args.batch_size / len(ids), l))
+        logging.info('Adv Train: [{}/{} ({:.0f}%)]\tGen Loss: {:.8f}'.format(
+            batch_idx+1, n_iter,
+            100. * (batch_idx+1) / n_iter, gl))
 
 
 def d_train_step(batch_idx):
@@ -183,15 +178,15 @@ def d_train_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    _, l = sess.run([d_optimizer, d_loss], feed_dict={
+    _, dl = sess.run([d_optimizer, d_loss], feed_dict={
         input_images: np.array(images),
         target_images: np.array(targets),
         })
 
     if batch_idx % train_data_update_freq == 0:
-        logging.info('Train Epoch: [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-            (batch_idx+1) * args.batch_size, len(ids),
-            100. * (batch_idx+1) * args.batch_size / len(ids), l))
+        logging.info('Disc Train: [{}/{} ({:.0f}%)]Disc Loss: {:.8f}'.format(
+            batch_idx+1, n_iter,
+            100. * (batch_idx+1) / n_iter, dl))
 
 
 def a_train_step(batch_idx):
@@ -199,23 +194,23 @@ def a_train_step(batch_idx):
 
     images, targets = load_batch(batch_range)
 
-    _, _, l = sess.run([d_optimizer, a_optimizer, a_loss], feed_dict={
+    _, gl, dl = sess.run([a_optimizer, g_loss, d_loss], feed_dict={
         input_images: np.array(images),
         target_images: np.array(targets),
         })
 
     if batch_idx % train_data_update_freq == 0:
-        logging.info('Train Epoch: [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-            (batch_idx+1) * args.batch_size, len(ids),
-            100. * (batch_idx+1) * args.batch_size / len(ids), l))
+        logging.info('Adv Train: [{}/{} ({:.0f}%)]\tGen Loss: {:.8f}\tDisc Loss: {:.8f}'.format(
+            batch_idx+1, n_iter,
+            100. * (batch_idx+1) / n_iter, gl, dl))
 
 
-while global_step.eval(sess) < args.nb_epoch * len(train_ids)/args.batch_size:
+while global_step.eval(sess) < n_iter:
     batch_idx = global_step.eval(sess)
 
-    if batch_idx < 1000:
+    if batch_idx < 2400:
         g_train_step(batch_idx)
-    elif batch_idx < 2000:
+    elif batch_idx < 2400+400:
         d_train_step(batch_idx)
     else:
         a_train_step(batch_idx)
