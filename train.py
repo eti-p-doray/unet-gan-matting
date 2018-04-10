@@ -66,7 +66,7 @@ model = UNet(4,4)
 output = tf.sigmoid(tf.squeeze(model(input_images)))
 
 masked_output = apply_trimap(target_images, output, input_images[:,:,:,3])
-loss = tf.losses.mean_squared_error(target_images, masked_output)
+loss = tf.losses.mean_squared_error(target_images, output)
 
 optimizer = tf.train.AdadeltaOptimizer(args.lr).minimize(loss, global_step=global_step)
 
