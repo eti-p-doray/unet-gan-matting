@@ -1,13 +1,12 @@
 #!/usr/bin/python3
 
-import tensorflow as tf
-import random
-
 import argparse
-from os import listdir
-import os.path
-import numpy as np
+import os
+import random
 import logging
+
+import tensorflow as tf
+import numpy as np
 from PIL import Image
 
 from unet import UNet
@@ -42,7 +41,10 @@ trimap_path = os.path.join(args.data, "trimap")
 target_path = os.path.join(args.data, "target")
 output_path = os.path.join(args.data, "output")
 
-ids = [os.path.splitext(filename)[0].split('_') for filename in listdir(input_path)]
+if not os.path.isdir(output_path):
+    os.makedirs(output_path)
+
+ids = [os.path.splitext(filename)[0].split('_') for filename in os.listdir(input_path)]
 np.random.shuffle(ids)
 split_point = int(round(0.99*len(ids))) #using 70% as training and 30% as Validation
 train_ids = ids[0:split_point]

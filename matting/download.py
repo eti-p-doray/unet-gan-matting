@@ -27,5 +27,5 @@ def dowload_matting_dataset(output_dir):
         "chromedriver": "/usr/local/bin/chromedriver"})
 
 if __name__ == "__main__":
-    output_dir = os.path.join("data", "matting", "object")
+    output_dir = os.path.join("data", "matting")
     dowload_matting_dataset(output_dir)

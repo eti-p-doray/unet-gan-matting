@@ -122,10 +122,17 @@ def build_dataset(object_dir, background_dir, input_dir, trimap_dir, target_dir)
 
 
 if __name__ == "__main__":
-    object_dir = os.path.join("data", "matting", "object")
-    background_dir = os.path.join("data", "matting", "background")
+    object_dir = os.path.join("data", "matting", "portrait transparent background")
+    background_dir = os.path.join("data", "matting", "texture background")
     input_dir = os.path.join("data", "matting", "input")
     trimap_dir = os.path.join("data", "matting", "trimap")
     target_dir = os.path.join("data", "matting", "target")
+
+    if not os.path.isdir(input_dir):
+        os.makedirs(input_dir)
+    if not os.path.isdir(trimap_dir):
+        os.makedirs(trimap_dir)
+    if not os.path.isdir(target_dir):
+        os.makedirs(target_dir)
 
     build_dataset(object_dir, background_dir, input_dir, trimap_dir, target_dir)
