@@ -2,6 +2,7 @@
 # full assembly of the sub-parts to form the complete net
 
 import tensorflow as tf
+import numpy as np
 
 # python 3 confusing imports :(
 from .unet_parts import *
@@ -66,6 +67,8 @@ class Discriminator():
         x = self.conv2(x)
         x = self.conv3(x)
         x = self.conv4(x)
+        dim = np.prod(x.shape[1:])
+        x = tf.reshape(x, [-1, dim])
         x = tf.layers.dense(x, 1)
         x = tf.sigmoid(x)
         return x
