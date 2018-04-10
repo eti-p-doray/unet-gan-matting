@@ -6,12 +6,9 @@ import math
 
 import tensorflow as tf
 
-class inconv():
+class InConv():
     def __init__(self, in_ch, out_ch):
-        super(inconv, self).__init__()
         self.out_ch = out_ch
-
-
 
     def __call__(self, x):
         x = tf.layers.conv2d(x, filters=self.out_ch, kernel_size=3, padding="same")
@@ -23,11 +20,9 @@ class inconv():
         return x
 
 
-class down():
+class Down():
     def __init__(self, in_ch, out_ch):
-        super(down, self).__init__()
         self.out_ch = out_ch
-
 
     def __call__(self, x):
         x = tf.layers.max_pooling2d(x, pool_size=[2,2], strides=2)
@@ -42,9 +37,8 @@ class down():
         return x
 
 
-class up():
+class Up():
     def __init__(self, in_ch, out_ch, bilinear=True):
-        super(up, self).__init__()
         self.out_ch = out_ch
 
     def __call__(self, x1, x2):
@@ -65,9 +59,8 @@ class up():
         return x
 
 
-class outconv():
+class OutConv():
     def __init__(self, in_ch, out_ch):
-        super(outconv, self).__init__()
         self.out_ch = out_ch
 
     def __call__(self, x):

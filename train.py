@@ -9,7 +9,7 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-from unet import UNet
+from unet import UNet, Discriminator
 from script import resize
 
 train_data_update_freq = 1
@@ -25,6 +25,8 @@ parser = argparse.ArgumentParser(description="Trains the unet")
 parser.add_argument("data", type=str,
     help="Path to a folder containing data to train")
 parser.add_argument("--lr", type=float, default=1.0,
+    help="Learning rate used to optimize")
+parser.add_argument("--d_coeff", type=float, default=1.0,
     help="Learning rate used to optimize")
 parser.add_argument("--nb_epoch", dest="nb_epoch", type=int, default=5,
     help="Number of training epochs")
@@ -67,13 +69,34 @@ def apply_trimap(images, output, alpha):
 
 input_images = tf.placeholder(tf.float32, shape=[None, 240, 180, 4])
 target_images = tf.placeholder(tf.float32, shape=[None, 240, 180, 4])
-model = UNet(4,4)
-output = tf.sigmoid(tf.squeeze(model(input_images)))
+alpha = target_images[:,:,:,3]
+alpha = alpha[..., np.newaxis]
 
-masked_output = apply_trimap(target_images, output, input_images[:,:,:,3])
-loss = tf.losses.mean_squared_error(target_images, output)
+with tf.variable_scope("Gen"):
+    gen = UNet(4,1)
+    output = tf.sigmoid(gen(input_images))
+    g_loss = tf.losses.mean_squared_error(alpha, output)
+with tf.variable_scope("Disc"):
+    disc = Discriminator(1)
+    d_real = disc(alpha)
+    d_fake = disc(output)
+    d_loss = tf.log(d_real) + tf.log(1-d_fake)
 
-optimizer = tf.train.AdadeltaOptimizer(args.lr).minimize(loss, global_step=global_step)
+a_loss = g_loss + args.d_coeff * d_loss
+
+#masked_output = apply_trimap(target_images, output, alpha)
+#loss = (tf.losses.mean_squared_error(tf.multiply(target_images[:,:,:,0:3], alpha), output[:,:,:,0:3]) +
+#        tf.losses.mean_squared_error(alpha, output[:,:,:,3]))
+
+
+#weights = tf.logical_and(alpha > 0.25, alpha < 0.75)
+
+g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Gen')
+d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Disc')
+
+g_optimizer = tf.train.AdadeltaOptimizer(args.lr).minimize(g_loss, global_step=global_step, var_list=g_vars)
+a_optimizer = tf.train.AdadeltaOptimizer(args.lr).minimize(a_loss, global_step=global_step, var_list=g_vars)
+d_optimizer = tf.train.AdadeltaOptimizer(args.lr).minimize(-d_loss, global_step=global_step, var_list=d_vars)
 
 init = tf.global_variables_initializer()
 sess = tf.Session()
@@ -126,25 +149,57 @@ def test_step():
     for batch_range in batch(valid_ids, args.batch_size):
         images, targets = load_batch(batch_range)
 
-        l, o = sess.run([loss, masked_output], feed_dict={
+        l, o = sess.run([g_loss, output], feed_dict={
             input_images: images,
             target_images: targets,
             })
         total_loss += l*args.batch_size
 
         for idx, (i,j) in enumerate(batch_range):
-            image = Image.fromarray((o[idx,:,:,:] * 255).astype(np.uint8))
+            image = Image.fromarray((o[idx,:,:,0] * 255).astype(np.uint8))
             image.save(os.path.join(output_path, str(i) + '.png'))
 
     logging.info('Validation Loss: {}'.format(total_loss / len(valid_ids)))
 
 
-def train_step(batch_idx):
+def g_train_step(batch_idx):
     batch_range = random.sample(train_ids, args.batch_size)
 
     images, targets = load_batch(batch_range)
 
-    _, l = sess.run([optimizer, loss], feed_dict={
+    _, l = sess.run([g_optimizer, g_loss], feed_dict={
+        input_images: np.array(images),
+        target_images: np.array(targets),
+        })
+
+    if batch_idx % train_data_update_freq == 0:
+        logging.info('Train Epoch: [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            (batch_idx+1) * args.batch_size, len(ids),
+            100. * (batch_idx+1) * args.batch_size / len(ids), l))
+
+
+def d_train_step(batch_idx):
+    batch_range = random.sample(train_ids, args.batch_size)
+
+    images, targets = load_batch(batch_range)
+
+    _, l = sess.run([d_optimizer, d_loss], feed_dict={
+        input_images: np.array(images),
+        target_images: np.array(targets),
+        })
+
+    if batch_idx % train_data_update_freq == 0:
+        logging.info('Train Epoch: [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            (batch_idx+1) * args.batch_size, len(ids),
+            100. * (batch_idx+1) * args.batch_size / len(ids), l))
+
+
+def a_train_step(batch_idx):
+    batch_range = random.sample(train_ids, args.batch_size)
+
+    images, targets = load_batch(batch_range)
+
+    _, _, l = sess.run([d_optimizer, a_optimizer, a_loss], feed_dict={
         input_images: np.array(images),
         target_images: np.array(targets),
         })
@@ -157,7 +212,13 @@ def train_step(batch_idx):
 
 while global_step.eval(sess) < args.nb_epoch * len(train_ids)/args.batch_size:
     batch_idx = global_step.eval(sess)
-    train_step(batch_idx)
+
+    if batch_idx < 1000:
+        g_train_step(batch_idx)
+    elif batch_idx < 2000:
+        d_train_step(batch_idx)
+    else:
+        a_train_step(batch_idx)
     batch_idx = global_step.eval(sess)
 
     if batch_idx % test_data_update_freq == 0:

@@ -9,22 +9,21 @@ from .unet_parts import *
 
 class UNet():
     def __init__(self, in_ch, out_ch):
-        super(UNet, self).__init__()
         n_channels = [
-            8,
             16,
             32,
             64,
+            128,
         ]
 
-        self.inc = inconv(in_ch, n_channels[0])
-        self.down1 = down(n_channels[0], n_channels[1])
-        self.down2 = down(n_channels[1], n_channels[2])
-        self.down3 = down(n_channels[2], n_channels[3])
-        self.up4 = up(n_channels[3], n_channels[2])
-        self.up5 = up(n_channels[2], n_channels[1])
-        self.up6 = up(n_channels[1], n_channels[0])
-        self.outc = outconv(n_channels[0], out_ch)
+        self.inc = InConv(in_ch, n_channels[0])
+        self.down1 = Down(n_channels[0], n_channels[1])
+        self.down2 = Down(n_channels[1], n_channels[2])
+        self.down3 = Down(n_channels[2], n_channels[3])
+        self.up4 = Up(n_channels[3], n_channels[2])
+        self.up5 = Up(n_channels[2], n_channels[1])
+        self.up6 = Up(n_channels[1], n_channels[0])
+        self.outc = OutConv(n_channels[0], out_ch)
 
     def __call__(self, x):
         x1 = self.inc(x)
@@ -36,3 +35,38 @@ class UNet():
         x = self.up6(x, x1)
         x = self.outc(x)
         return x
+
+class Conv():
+    def __init__(self, in_ch, out_ch):
+        self.out_ch = out_ch
+
+    def __call__(self, x):
+        x = tf.layers.conv2d(x, filters=self.out_ch, kernel_size=3, padding="same")
+        x = tf.contrib.layers.batch_norm(x)
+        x = tf.layers.max_pooling2d(x, pool_size=[2,2], strides=2)
+        x = tf.nn.relu(x)
+        return x
+
+class Discriminator():
+    def __init__(self, in_ch):
+        n_channels = [
+            16,
+            32,
+            64,
+            128,
+        ]
+
+        self.conv1 = Conv(in_ch, n_channels[0])
+        self.conv2 = Conv(n_channels[0], n_channels[1])
+        self.conv3 = Conv(n_channels[1], n_channels[2])
+        self.conv4 = Conv(n_channels[2], n_channels[3])
+
+    def __call__(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = tf.layers.dense(x, 1)
+        x = tf.sigmoid(x)
+        return x
+
