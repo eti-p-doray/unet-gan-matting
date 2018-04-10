@@ -6,7 +6,7 @@ from google_images_download import google_images_download
 def dowload_matting_dataset(output_dir):
 
     if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
+        os.makedirs(output_dir)
 
     response = google_images_download.googleimagesdownload()
     response.download({
