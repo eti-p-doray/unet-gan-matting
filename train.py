@@ -180,21 +180,24 @@ def main(args):
             optimizers = []
             if batch_idx < g_iter:
                 loss_fct = g_loss
+                summary_fct = g_loss_summary
                 label = 'Gen train'
                 optimizers = [g_optimizer]
             elif batch_idx < g_iter+d_iter:
                 loss_fct = d_loss
+                summary_fct = d_loss_summary
                 label = 'Disc train'
                 optimizers = [d_optimizer]
             else:
                 loss_fct = a_loss
+                summary_fct = summary_op
                 label = 'Adv train'
                 optimizers = [a_optimizer, d_optimizer]
 
             batch_range = random.sample(train_ids, args.batch_size)
             images, targets = load_batch(batch_range)
 
-            loss, summary, _ = sess.run([loss_fct, summary_op] +  optimizers, feed_dict={
+            loss, summary, _ = sess.run([loss_fct, summary_fct] +  optimizers, feed_dict={
                 input_images: np.array(images),
                 target_images: np.array(targets)})
 
