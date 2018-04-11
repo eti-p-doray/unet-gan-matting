@@ -181,7 +181,7 @@ def main(args):
             if batch_idx < g_iter:
                 loss_fct = g_loss
                 label = 'Gen train'
-                optimizers = [g_optimizer, d_optimizer]
+                optimizers = [g_optimizer]
             elif batch_idx < g_iter+d_iter:
                 loss_fct = d_loss
                 label = 'Disc train'
@@ -189,7 +189,7 @@ def main(args):
             else:
                 loss_fct = a_loss
                 label = 'Adv train'
-                optimizers = [a_optimizer]
+                optimizers = [a_optimizer, d_optimizer]
 
             batch_range = random.sample(train_ids, args.batch_size)
             images, targets = load_batch(batch_range)
@@ -197,11 +197,13 @@ def main(args):
                 input_images: np.array(images),
                 target_images: np.array(targets)})
 
-            if batch_idx % test_data_update_freq == 0:
+            if batch_idx % train_data_update_freq == 0:
                 logging.info('{}: [{}/{} ({:.0f}%)]\tGen Loss: {:.8f}'.format(label, batch_idx, n_iter,
                     100. * (batch_idx+1) / n_iter, loss))
 
                 train_writer.add_summary(summary, batch_idx)
+
+            if batch_idx % test_data_update_freq == 0:
                 test_step(batch_idx)
 
             if batch_idx % sess_save_freq == 0:
