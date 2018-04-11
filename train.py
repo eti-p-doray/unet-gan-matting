@@ -139,9 +139,9 @@ def main(args):
             logging.debug(input_filename)
             logging.debug(trimap_filename)
             logging.debug(target_filename)
-            image = resize(Image.open(input_filename), 4)
-            trimap = resize(Image.open(trimap_filename), 4)
-            target = resize(Image.open(target_filename), 4)
+            image = Image.open(input_filename)
+            trimap = Image.open(trimap_filename)
+            target = Image.open(target_filename)
 
             image = np.array(image)
             trimap = np.array(trimap)[..., np.newaxis]
