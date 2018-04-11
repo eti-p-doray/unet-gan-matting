@@ -193,7 +193,8 @@ def main(args):
 
             batch_range = random.sample(train_ids, args.batch_size)
             images, targets = load_batch(batch_range)
-            loss, summary, _ = sess.run([a_loss, summary_op, a_optimizer], feed_dict={
+
+            loss, summary, _ = sess.run([loss_fct, summary_op] +  optimizers, feed_dict={
                 input_images: np.array(images),
                 target_images: np.array(targets)})
 
