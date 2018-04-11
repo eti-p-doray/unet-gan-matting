@@ -218,6 +218,9 @@ def main(args):
         saver.save(sess, os.path.join(args.logdir, 'crash_save_'+model_name+".ckpt"), global_step=batch_idx)
 
 
+    saver.save(sess, os.path.join(args.logdir, model_name+".ckpt"), global_step=batch_idx)
+
+
 if __name__ == '__main__':
     args = parse_args()
     main(args)
