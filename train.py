@@ -25,7 +25,7 @@ def parse_args():
         help="Learning rate used to optimize")
     parser.add_argument("--d_coeff", type=float, default=1.0,
         help="Discriminator loss coefficient")
-    parser.add_argument("--gen_epoch", type=int, default=3,
+    parser.add_argument("--gen_epoch", type=int, default=4,
         help="Number of training epochs")
     parser.add_argument("--disc_epoch", type=int, default=1,
         help="Number of training epochs")
@@ -80,8 +80,8 @@ def main(args):
     n_iter = g_iter+d_iter+a_iter
 
 
-    input_images = tf.placeholder(tf.float32, shape=[None, 960, 720, 4])
-    target_images = tf.placeholder(tf.float32, shape=[None, 960, 720, 4])
+    input_images = tf.placeholder(tf.float32, shape=[None, 480, 360, 4])
+    target_images = tf.placeholder(tf.float32, shape=[None, 480, 360, 4])
     alpha = target_images[:,:,:,3][..., np.newaxis]
 
     with tf.variable_scope("Gen"):
@@ -139,9 +139,9 @@ def main(args):
             logging.debug(input_filename)
             logging.debug(trimap_filename)
             logging.debug(target_filename)
-            image = Image.open(input_filename)
-            trimap = Image.open(trimap_filename)
-            target = Image.open(target_filename)
+            image = resize(Image.open(input_filename), 2)
+            trimap = resize(Image.open(trimap_filename), 2)
+            target = resize(Image.open(target_filename), 2)
 
             image = np.array(image)
             trimap = np.array(trimap)[..., np.newaxis]
