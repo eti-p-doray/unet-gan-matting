@@ -155,12 +155,12 @@ def main(args):
         return np.asarray(images), np.asarray(targets)
 
 
-    def test_step(batch_idx):
+    def test_step(batch_idx, summary_fct):
         batch_range = random.sample(train_ids, args.batch_size)
 
         images, targets = load_batch(batch_range)
 
-        loss, demo, summary = sess.run([g_loss, summary_image, summary_op], feed_dict={
+        loss, demo, summary = sess.run([g_loss, summary_image, summary_fct], feed_dict={
             input_images: images,
             target_images: targets,
             })
@@ -197,9 +197,9 @@ def main(args):
             batch_range = random.sample(train_ids, args.batch_size)
             images, targets = load_batch(batch_range)
 
-            loss, summary, _ = sess.run([loss_fct, summary_fct] +  optimizers, feed_dict={
+            loss, summary = sess.run([loss_fct, summary_fct] +  optimizers, feed_dict={
                 input_images: np.array(images),
-                target_images: np.array(targets)})
+                target_images: np.array(targets)})[0:2]
 
             if batch_idx % train_data_update_freq == 0:
                 logging.info('{}: [{}/{} ({:.0f}%)]\tGen Loss: {:.8f}'.format(label, batch_idx, n_iter,
@@ -208,7 +208,7 @@ def main(args):
                 train_writer.add_summary(summary, batch_idx)
 
             if batch_idx % test_data_update_freq == 0:
-                test_step(batch_idx)
+                test_step(batch_idx, summary_fct)
 
             if batch_idx % sess_save_freq == 0:
                 logging.debug('Saving model')
