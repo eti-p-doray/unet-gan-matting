@@ -80,8 +80,8 @@ def main(args):
     n_iter = g_iter+d_iter+a_iter
 
 
-    input_images = tf.placeholder(tf.float32, shape=[None, 240, 180, 4])
-    target_images = tf.placeholder(tf.float32, shape=[None, 240, 180, 4])
+    input_images = tf.placeholder(tf.float32, shape=[None, 960, 720, 4])
+    target_images = tf.placeholder(tf.float32, shape=[None, 960, 720, 4])
     alpha = target_images[:,:,:,3][..., np.newaxis]
 
     with tf.variable_scope("Gen"):
