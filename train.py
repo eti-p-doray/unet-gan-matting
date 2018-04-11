@@ -192,7 +192,7 @@ def main(args):
                 loss_fct = a_loss
                 summary_fct = summary_op
                 label = 'Adv train'
-                optimizers = [a_optimizer, d_optimizer]
+                optimizers = [a_optimizer]
 
             batch_range = random.sample(train_ids, args.batch_size)
             images, targets = load_batch(batch_range)
