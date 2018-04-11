@@ -168,7 +168,7 @@ def main(args):
         test_writer.add_summary(summary, batch_idx)
         test_writer.add_summary(demo, batch_idx)
 
-        logging.info('Validation Loss: {:.8f}'.format(loss / len(batch_range)))
+        logging.info('Validation Loss: {:.8f}'.format(loss))
 
     try:
         batch_idx = 0
