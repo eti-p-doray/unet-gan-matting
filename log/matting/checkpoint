@@ -1,0 +1,2 @@
+model_checkpoint_path: "matting.ckpt-36800"
+all_model_checkpoint_paths: "matting.ckpt-36800"

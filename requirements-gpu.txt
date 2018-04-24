@@ -1,0 +1,5 @@
+Pillow >= 5.0.0
+tensorflow-gpu >= 1.7
+numpy
+google_images_download
+opencv-python
