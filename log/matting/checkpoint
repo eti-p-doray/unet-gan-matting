@@ -1,0 +1,6 @@
+model_checkpoint_path: "matting.ckpt-36800"
+all_model_checkpoint_paths: "matting.ckpt-33600"
+all_model_checkpoint_paths: "matting.ckpt-34400"
+all_model_checkpoint_paths: "matting.ckpt-35200"
+all_model_checkpoint_paths: "matting.ckpt-36000"
+all_model_checkpoint_paths: "matting.ckpt-36800"
