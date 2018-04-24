@@ -31,7 +31,7 @@ For an enviroment without GPU:
 
 `pip3 install -r requirements.txt`
 
-For an enviroment witn GPU:
+For an enviroment with GPU:
 
 `pip3 install -r requirements-gpu.txt`
 
