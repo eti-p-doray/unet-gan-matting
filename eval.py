@@ -25,7 +25,7 @@ def image_fill(img, size, value):
               math.ceil((size[1] - img.shape[1])/2),
               math.floor((size[1] - img.shape[1])/2)]
     return cv2.copyMakeBorder(img,border[0],border[1],border[2],border[3],cv2.BORDER_CONSTANT,value=value)
-
+u
 
 def load_image(image_file):
     size = [960/2, 720/2]
@@ -66,18 +66,18 @@ def generate_trimap(object_file):
 
 # Parse Arguments
 def parse_args():
-    parser = argparse.ArgumentParser(description="Trains the unet")
+    parser = argparse.ArgumentParser(description="Evalutate image")
     parser.add_argument("input", type=str,
         help="Path to a file containing input image")
     parser.add_argument("object", type=str,
         help="Path to a file containing trimap image")
     parser.add_argument("output", type=str,
-        help="Path to a file containing trimap image")
+        help="Path to the output file")
     parser.add_argument('--checkpoint', type=int, default=None,
         help='Saved session checkpoint, -1 for latest.')
     parser.add_argument('--logdir', default="log/" + model_name,
         help='Directory where logs should be written.')
-    return  parser.parse_args()
+    return parser.parse_args()
 
 
 def apply_trimap(images, output, alpha):
