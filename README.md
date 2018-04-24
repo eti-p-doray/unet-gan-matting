@@ -61,7 +61,7 @@ Once the dataset is generated, the model can be trained using the following:
 
 The training script will save a checkpoint in the `log` directory after each 100 batches. it also saves a checkeck point when an exception is thrown and script terminates.
 
-## Evalute
+## Evaluate
 In order to try our model, we included a snapshot of our trained model (in the `log` directory). That can be used as follow:
 
 `python3 eval.py <input_img_path> <trimap_img_path> <output_img_path> --checkpoint -1`
