@@ -25,7 +25,6 @@ def image_fill(img, size, value):
               math.ceil((size[1] - img.shape[1])/2),
               math.floor((size[1] - img.shape[1])/2)]
     return cv2.copyMakeBorder(img,border[0],border[1],border[2],border[3],cv2.BORDER_CONSTANT,value=value)
-u
 
 def load_image(image_file):
     size = [960/2, 720/2]
