@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 
 from unet import UNet, Discriminator
-from script import resize
+from scripts.image_manips import resize
 
 model_name = "matting"
 
